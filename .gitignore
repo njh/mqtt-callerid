@@ -1,0 +1,7 @@
+*.o
+*.lo
+*.a
+*.cache
+*.log
+*~
+mqtt-callerid
