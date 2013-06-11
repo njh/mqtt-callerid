@@ -19,12 +19,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <termios.h>
 #include <string.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <getopt.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <unistd.h>
+#include <termios.h>
 
 #include <sys/types.h>
 #include <mosquitto.h>
@@ -41,7 +43,8 @@ int debug = TRUE;
 int exit_code = EXIT_SUCCESS;
 
 // Configurable parameters
-char *mqtt_topic = DEFAULT_MQTT_TOPIC;
+const char* serial_device = "/dev/tty.usbserial-AM01Z7LE";
+const char* mqtt_topic = DEFAULT_MQTT_TOPIC;
 const char* mqtt_host = DEFAULT_MQTT_HOST;
 const char* mqtt_client_id = DEFAULT_MQTT_CLIENT_ID;
 int mqtt_port = DEFAULT_MQTT_PORT;
@@ -65,11 +68,11 @@ static void cid_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
   if(!rc){
     printf("Connected to MQTT server.\n");
-    mqtt_connected = 1;
+    mqtt_connected = TRUE;
   } else {
     const char *str = mosquitto_connack_string(rc);
     printf("Connection Refused: %s\n", str);
-    mqtt_connected = 0;
+    mqtt_connected = FALSE;
   }
 }
 
@@ -93,7 +96,7 @@ static struct mosquitto * cid_initialise_mqtt(const char* id)
     struct mosquitto *mosq = NULL;
     int res = 0;
 
-    mosq = mosquitto_new(id, true, NULL);
+    mosq = mosquitto_new(id, TRUE, NULL);
     if (!mosq) {
         printf("Failed to initialise MQTT client.\n");
         return NULL;
@@ -133,7 +136,9 @@ static void usage()
 int main(int argc, char *argv[])
 {
     //int opt;
+    struct termios options;
     int res;
+    int fd;
 
     // Make stdout unbuffered for logging/debugging
     setbuf(stdout, NULL);
@@ -148,7 +153,28 @@ int main(int argc, char *argv[])
         }
     }
     */
-    
+
+    // Open the serial port
+    fd = open(serial_device, O_RDONLY | O_NOCTTY | O_NDELAY);
+    if (fd < 0) {
+        perror("Unable to open serial port");
+        exit(-1);
+    }
+
+    fcntl(fd, F_SETFL, 0);
+
+    tcgetattr(fd, &options);
+    cfsetispeed(&options, B1200);
+    cfsetospeed(&options, B1200);
+
+    // No parity (8N1):
+    options.c_cflag &= ~PARENB;
+    options.c_cflag &= ~CSTOPB;
+    options.c_cflag &= ~CSIZE;
+    options.c_cflag |= CS8;
+
+    tcsetattr(fd, TCSANOW, &options);
+
     // Initialise libmosquitto
     mosquitto_lib_init();
     if (debug) {
@@ -170,11 +196,20 @@ int main(int argc, char *argv[])
     signal(SIGHUP, termination_handler);
 
 
+    int i = 0;
+    unsigned char buf[128];
     while (keep_running) {
+        size_t bytes = read(fd, buf, 1);
+        if (bytes) {
+            unsigned int hex = buf[0];
+            printf("Read[%d]: '%c' (0x%2.2x)\n", i, buf[0], hex);
+        }
+
+        i++;
         // FIXME: convert this to a select loop?
 
         // Wait for network packets for a maximum of 50ms
-        res = mosquitto_loop(mosq, 50, 1);
+        //res = mosquitto_loop(mosq, 50, 1);
         // FIXME: check for errors
     }
 
@@ -185,6 +220,9 @@ cleanup:
     if (mosq) mosquitto_destroy(mosq);
     mosquitto_lib_cleanup();
 
+
+    // Close the serial port
+    close(fd);
 
     // exit_code is non-zero if something went wrong
     return exit_code;
