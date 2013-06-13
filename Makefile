@@ -7,8 +7,14 @@ LDFLAGS=-lmosquitto
 
 all: mqtt-callerid
 
-mqtt-callerid: mqtt-callerid.c mqtt-callerid.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o mqtt-callerid mqtt-callerid.c
+mqtt-callerid: mqtt-callerid.o callerid.o
+	$(CC) $(LDFLAGS) -o $@ $^
+
+mqtt-callerid.o: mqtt-callerid.c callerid.h
+	$(CC) $(CFLAGS) -c $<
+
+callerid.o: callerid.c callerid.h
+	$(CC) $(CFLAGS) -c $<
 
 clean:
 	rm -f *.o mqtt-callerid

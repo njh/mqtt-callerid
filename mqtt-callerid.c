@@ -31,8 +31,7 @@
 #include <sys/types.h>
 #include <mosquitto.h>
 
-#include "mqtt-callerid.h"
-
+#include "callerid.h"
 
 
 /* Global Variables */
@@ -44,13 +43,13 @@ int exit_code = EXIT_SUCCESS;
 
 // Configurable parameters
 const char* serial_device = "/dev/tty.usbserial-AM01Z7LE";
-const char* mqtt_topic = DEFAULT_MQTT_TOPIC;
-const char* mqtt_host = DEFAULT_MQTT_HOST;
-const char* mqtt_client_id = DEFAULT_MQTT_CLIENT_ID;
-int mqtt_port = DEFAULT_MQTT_PORT;
-int mqtt_qos = DEFAULT_MQTT_QOS;
-int mqtt_retain = DEFAULT_MQTT_RETAIN;
-int mqtt_keepalive = DEFAULT_MQTT_KEEPALIVE;
+const char* mqtt_topic = "callerid";
+const char* mqtt_host = "localhost";
+const char* mqtt_client_id = "mqtt-callerid";
+int mqtt_port = 1883;
+int mqtt_qos = 1;
+int mqtt_retain = FALSE;
+int mqtt_keepalive = 10;
 
 
 static void termination_handler(int signum)
@@ -136,9 +135,8 @@ static void usage()
 int main(int argc, char *argv[])
 {
     //int opt;
-    struct termios options;
-    int res;
-    int fd;
+    int res = -1;
+    int fd = -1;
 
     // Make stdout unbuffered for logging/debugging
     setbuf(stdout, NULL);
@@ -154,27 +152,6 @@ int main(int argc, char *argv[])
     }
     */
 
-    // Open the serial port
-    fd = open(serial_device, O_RDONLY | O_NOCTTY | O_NDELAY);
-    if (fd < 0) {
-        perror("Unable to open serial port");
-        exit(-1);
-    }
-
-    fcntl(fd, F_SETFL, 0);
-
-    tcgetattr(fd, &options);
-    cfsetispeed(&options, B1200);
-    cfsetospeed(&options, B1200);
-
-    // No parity (8N1):
-    options.c_cflag &= ~PARENB;
-    options.c_cflag &= ~CSTOPB;
-    options.c_cflag &= ~CSIZE;
-    options.c_cflag |= CS8;
-
-    tcsetattr(fd, TCSANOW, &options);
-
     // Initialise libmosquitto
     mosquitto_lib_init();
     if (debug) {
@@ -187,6 +164,13 @@ int main(int argc, char *argv[])
     mosq = cid_initialise_mqtt(mqtt_client_id);
     if (!mosq) {
         printf("Failed to initialise MQTT client\n");
+        goto cleanup;
+    }
+
+    // Open the serial port
+    fd = cid_open_serial(serial_device);
+    if (fd < 0) {
+        printf("Failed to open serial port\n");
         goto cleanup;
     }
 
