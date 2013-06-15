@@ -35,7 +35,7 @@
 /* From BT Suppliers' Information Note 227
 
    Transmission rate: 1200 baud ± 1%
-   Data format:       Serial binary asynchronous (1 start bit first, 
+   Data format:       Serial binary asynchronous (1 start bit first,
                       then 8 data bits with least significant bit first,
                       followed by 1 stop bit minimum, up to 10 stop bits maximum).
                       Start bit=0, Stop bit=1.
@@ -58,7 +58,7 @@ int cid_open_serial(const char* dev)
     // Read in current configuration options
     // FIXME: check for error
     tcgetattr(fd, &options);
-    
+
     // Set baud rate to 1200
     // FIXME: check for error
     cfsetispeed(&options, B1200);
@@ -73,7 +73,112 @@ int cid_open_serial(const char* dev)
     // Save configuration options
     // FIXME: check for error
     tcsetattr(fd, TCSANOW, &options);
-    
+
     return fd;
 }
 
+
+static int parse_ascii_num(const uint8_t* str)
+{
+    char num[3];
+    num[0] = str[0];
+    num[1] = str[1];
+    num[2] = '\0';
+    return atoi(num);
+}
+
+int cid_parse_buffer(callerid_t *cid, const uint8_t* buf, size_t len)
+{
+    size_t seizure_count = 0;
+    int end;
+    int i=0;
+
+    // Look for the start of the channel seizure
+    while (i<len) {
+        if (buf[i] == 0x55) {
+            break;
+        } else {
+            i++;
+        }
+    }
+
+    // Count the number of '01010101' bytes
+    while (i<len) {
+        if (buf[i] == 0x55) {
+            seizure_count++;
+            i++;
+        } else {
+            break;
+        }
+    }
+
+    // The length of Channel Seizure as seen by TE should be at least 96 bits (12 bytes)
+    if (seizure_count < 12) {
+        printf("Failed to find enough seizure bytes\n");
+        return -1;
+    }
+
+    // Check that the next byte is the type for CLIP
+    if (buf[i] != 0x80) {
+        printf("Message type is not 0x80 (CLIP)\n");
+        return -2;
+    } else {
+        i++;
+    }
+
+    // FIXME: Check that the length is valid
+    end = buf[i] + i;
+    if (end >= len) {
+        printf("Not enough bytes in buffer\n");
+        return -3;
+    } else {
+        i++;
+    }
+
+    while (i < end) {
+        int param_type = buf[i++];
+        int param_len = buf[i++];
+
+        // FIXME: check that param_len isn't too long
+
+        switch(param_type) {
+            case CID_PARAM_DATE_TIME:
+              cid->month = parse_ascii_num(&buf[i]);
+              cid->day = parse_ascii_num(&buf[i+2]);
+              cid->hour = parse_ascii_num(&buf[i+4]);
+              cid->min = parse_ascii_num(&buf[i+6]);
+            break;
+
+            case CID_PARAM_CALLER:
+              memcpy(cid->caller, &buf[i], param_len);
+              cid->caller[param_len] = '\0';
+            break;
+
+            case CID_PARAM_CALLED:
+              memcpy(cid->called, &buf[i], param_len);
+              cid->called[param_len] = '\0';
+            break;
+
+            case CID_PARAM_REASON_DN:
+              cid->reason_dn = buf[i];
+            break;
+
+            case CID_PARAM_NAME:
+              memcpy(cid->name, &buf[i], param_len);
+              cid->called[param_len] = '\0';
+            break;
+
+            case CID_PARAM_CALL_TYPE:
+              cid->call_type = buf[i];
+            break;
+
+            default:
+              printf("Unknown param type: 0x%2.2x\n", param_type);
+            break;
+        }
+
+        i += param_len;
+    }
+
+    return 0;
+}
