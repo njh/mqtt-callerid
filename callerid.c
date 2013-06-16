@@ -104,7 +104,7 @@ int cid_parse_buffer(callerid_t *cid, const uint8_t* buf, size_t len)
 
     // Count the number of '01010101' bytes
     while (i<len) {
-        if (buf[i] == 0x55) {
+        if (buf[i] == 0x55 || buf[i] == 0xD5) {
             seizure_count++;
             i++;
         } else {
@@ -173,7 +173,7 @@ int cid_parse_buffer(callerid_t *cid, const uint8_t* buf, size_t len)
             break;
 
             default:
-              printf("Unknown param type: 0x%2.2x\n", param_type);
+              fprintf(stderr, "Warning: unknown param type: 0x%2.2x\n", param_type);
             break;
         }
 

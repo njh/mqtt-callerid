@@ -103,11 +103,11 @@ int test_linetest1()
     assert_int_equals(cid->month, 6);
     assert_int_equals(cid->day, 12);
     assert_int_equals(cid->hour, 22);
-    assert_int_equals(cid->min, 41);
-    assert_str_equals(cid->caller, "");
+    assert_int_equals(cid->min, 59);
+    assert_str_equals(cid->caller, "08003289393");
     assert_str_equals(cid->called, "");
-    assert_chr_equals(cid->reason_dn, CID_REASON_UNAVAILABLE);
-    assert_str_equals(cid->name, "INTERNATIONAL");
+    assert_chr_equals(cid->reason_dn, 0);
+    assert_str_equals(cid->name, "");
 
     free(cid);
 
@@ -155,6 +155,26 @@ int test_unavailable2()
     return 0;
 }
 
+int test_withheld1()
+{
+    callerid_t *cid = process_file("tests/withheld1.bin");
+
+    assert_int_equals(cid->call_type, CID_CALL_TYPE_VOICE);
+    assert_int_equals(cid->month, 6);
+    assert_int_equals(cid->day, 12);
+    assert_int_equals(cid->hour, 22);
+    assert_int_equals(cid->min, 15);
+    assert_str_equals(cid->caller, "");
+    assert_str_equals(cid->called, "");
+    assert_chr_equals(cid->reason_dn, CID_REASON_WITHHELD);
+    assert_str_equals(cid->name, "WITHHELD");
+
+    free(cid);
+
+    // Success
+    return 0;
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -162,8 +182,10 @@ int main(int argc, char *argv[])
 
     if (test_bttext1()) failed++;
     if (test_international1()) failed++;
+    if (test_linetest1()) failed++;
     if (test_unavailable1()) failed++;
     if (test_unavailable2()) failed++;
+    if (test_withheld1()) failed++;
 
     if (failed) {
         fprintf(stderr, "Failed %d tests.\n", failed);
