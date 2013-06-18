@@ -69,6 +69,7 @@ int test_bttext1()
     assert_str_equals(cid->called, "");
     assert_chr_equals(cid->reason_dn, 0);
     assert_str_equals(cid->name, "");
+    assert_chr_equals(cid->reason_name, 0);
     free(cid);
 
     // Success
@@ -88,6 +89,7 @@ int test_international1()
     assert_str_equals(cid->called, "");
     assert_chr_equals(cid->reason_dn, CID_REASON_UNAVAILABLE);
     assert_str_equals(cid->name, "INTERNATIONAL");
+    assert_chr_equals(cid->reason_name, 0);
 
     free(cid);
 
@@ -108,6 +110,30 @@ int test_linetest1()
     assert_str_equals(cid->called, "");
     assert_chr_equals(cid->reason_dn, 0);
     assert_str_equals(cid->name, "");
+    assert_chr_equals(cid->reason_name, 0);
+
+    free(cid);
+
+    // Success
+    return 0;
+}
+
+int test_tan9table1()
+{
+    // This test case comes from Table 1 in Exar TAN-009:
+    // "Designing Caller Identification Delivery using XR-2211 for B.T."
+    callerid_t *cid = process_file("tests/tan9table1.bin");
+
+    assert_int_equals(cid->call_type, CID_CALL_TYPE_UNKNOWN);
+    assert_int_equals(cid->month, 4);
+    assert_int_equals(cid->day, 28);
+    assert_int_equals(cid->hour, 13);
+    assert_int_equals(cid->min, 20);
+    assert_str_equals(cid->caller, "4084346400");
+    assert_str_equals(cid->called, "");
+    assert_chr_equals(cid->reason_dn, 0);
+    assert_str_equals(cid->name, "");
+    assert_chr_equals(cid->reason_name, 'p');   // This is wrong
 
     free(cid);
 
@@ -128,6 +154,7 @@ int test_unavailable1()
     assert_str_equals(cid->called, "");
     assert_chr_equals(cid->reason_dn, CID_REASON_UNAVAILABLE);
     assert_str_equals(cid->name, "UNAVAILABLE");
+    assert_chr_equals(cid->reason_name, 0);
 
     free(cid);
 
@@ -148,6 +175,7 @@ int test_unavailable2()
     assert_str_equals(cid->called, "");
     assert_chr_equals(cid->reason_dn, CID_REASON_UNAVAILABLE);
     assert_str_equals(cid->name, "UNAVAILABLE");
+    assert_chr_equals(cid->reason_name, 0);
 
     free(cid);
 
@@ -168,6 +196,7 @@ int test_withheld1()
     assert_str_equals(cid->called, "");
     assert_chr_equals(cid->reason_dn, CID_REASON_WITHHELD);
     assert_str_equals(cid->name, "WITHHELD");
+    assert_chr_equals(cid->reason_name, 0);
 
     free(cid);
 
@@ -183,6 +212,7 @@ int main(int argc, char *argv[])
     if (test_bttext1()) failed++;
     if (test_international1()) failed++;
     if (test_linetest1()) failed++;
+    if (test_tan9table1()) failed++;
     if (test_unavailable1()) failed++;
     if (test_unavailable2()) failed++;
     if (test_withheld1()) failed++;

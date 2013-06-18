@@ -87,6 +87,24 @@ static int parse_ascii_num(const uint8_t* str)
     return atoi(num);
 }
 
+static int8_t check_checksum(const uint8_t* buf, size_t len)
+{
+    int8_t checksum = 0;
+    int i;
+
+    for(i=0; i<len; i++) {
+        checksum += (int8_t)buf[i];
+    }
+
+#ifdef DEBUG
+    printf("Expected Checksum: 0x%2.2x\n", buf[len]);
+    printf("Actual Checksum: 0x%2.2x\n", checksum);
+    printf("Sum: 0x%2.2x\n", buf[len]+checksum);
+#endif
+
+    return buf[len]+checksum;
+}
+
 int cid_parse_buffer(callerid_t *cid, const uint8_t* buf, size_t len)
 {
     size_t seizure_count = 0;
@@ -135,6 +153,12 @@ int cid_parse_buffer(callerid_t *cid, const uint8_t* buf, size_t len)
         i++;
     }
 
+    // Check the checksum
+    if (check_checksum(&buf[i-2], buf[i-1]+2)) {
+        printf("Error: checksum did not validate\n");
+        return -4;
+    }
+
     while (i < end) {
         int param_type = buf[i++];
         int param_len = buf[i++];
@@ -166,6 +190,10 @@ int cid_parse_buffer(callerid_t *cid, const uint8_t* buf, size_t len)
             case CID_PARAM_NAME:
               memcpy(cid->name, &buf[i], param_len);
               cid->called[param_len] = '\0';
+            break;
+
+            case CID_PARAM_REASON_NAME:
+              cid->reason_name = buf[i];
             break;
 
             case CID_PARAM_CALL_TYPE:

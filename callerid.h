@@ -53,6 +53,8 @@ typedef struct {
 
   char name[21];    // The Name/Text shall consist of between 1 and 20 BT IA5 characters.
 
+  char reason_name;
+
 } callerid_t;
 
 
@@ -79,6 +81,7 @@ enum {
 };
 
 enum {
+  CID_CALL_TYPE_UNKNOWN = 0x00,
   CID_CALL_TYPE_VOICE = 0x01,
   CID_CALL_TYPE_RINGBACK = 0x02,
   CID_CALL_TYPE_MESSAGE_WAITING = 0x81,
